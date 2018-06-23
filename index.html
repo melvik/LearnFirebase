@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Vue School Chat Room</title>
+  <script src="https://unpkg.com/vue"></script>
+  <script src="https://www.gstatic.com/firebasejs/5.1.0/firebase.js"></script>
+  <script src="https://unpkg.com/native-toast@1.2.1/dist/native-toast.js"></script>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/native-toast@1.2.1/dist/native-toast.css">
+</head>
+
+<body>
+  <div id="chat" class="container">
+    <h1>Vue School Chat Room</h1>
+    <!-- Messages -->
+    <div v-for="message in messages" class="card">
+      <div class="card-body">
+        <!-- nickname -->
+        <h6 class="card-subtitle mb-2 text-muted">{{ message.nickname }}</h6>
+        <!-- content -->
+        <p v-if="message !== editingMessage" class="card-text">{{ message.text }}</p>
+        <textarea v-else v-model="messageText" class="form-control"></textarea>
+        <!-- actions -->
+        <div v-if="message !== editingMessage">
+            <a @click.prevent="deleteMessage(message)" href="#" class="card-link">delete</a>
+            <a @click.prevent="editMessage(message)" href="#" class="card-link">edit</a>
+          </div>
+        <div v-else>
+            <a @click.prevent="cancelEditing" href="#" class="card-link">cancel</a>
+            <a @click.prevent="updateMessage" href="#" class="card-link">update</a>
+          </div>
+      </div>
+    </div>
+
+    <hr>
+    <!-- New Message -->
+    <form v-if="!editingMessage" @submit.prevent="storeMessage">
+      <div class="form-group">
+        <label>Message:</label>
+        <textarea v-model="messageText" class="form-control"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Nickname:</label>
+        <input v-model="nickname" class="form-control" />
+      </div>
+      <button class="btn btn-primary">Send</button>
+    </form>
+  </div>
+</body>
+
+<script type="text/javascript">
+  // Initialize Firebase
+  const config = {
+    apiKey: "AIzaSyDuOndaUi8V8exWY7B8vI5VHzu-mEuibu0",
+    authDomain: "vue-school-chat-room-hovik.firebaseapp.com",
+    databaseURL: "https://vue-school-chat-room-hovik.firebaseio.com",
+    projectId: "vue-school-chat-room-hovik",
+    storageBucket: "vue-school-chat-room-hovik.appspot.com",
+    messagingSenderId: "540802400819"
+  };
+  firebase.initializeApp(config);
+  
+  const database = firebase.database()
+// database.ref('messages').on('value', snapshot => {
+//   console.log(snapshot.val())
+// })
+
+  const messagesRef = database.ref('messages')
+
+// database.ref('who/is').set('hov new')
+
+new Vue({
+    el: "#chat",
+
+    data: {
+      messages: [],
+      messageText: '',
+      nickname: 'hootlex',
+      editingMessage: null
+    },
+
+    methods: {
+      storeMessage () {
+        // this.messages.push({text: this.messageText, nickname: this.nickname})
+        messagesRef.push({text: this.messageText, nickname: this.nickname})
+        this.messageText = ''
+      },
+      deleteMessage (message) {
+        messagesRef.child(message.id).remove()
+      },
+      editMessage (message) {
+        this.editingMessage = message
+        this.messageText = message.text
+      },
+      cancelEditing () {
+        this.editingMessage = null
+        this.messageText = ''
+      },
+      updateMessage () {
+        messagesRef.child(this.editingMessage.id).update({text: this.messageText})
+        this.cancelEditing()
+      }
+    },
+
+    created () {
+      messagesRef.on('child_added', snapshot => { 
+        this.messages.push({...snapshot.val(), id: snapshot.key})
+        if(snapshot.val().nickname !== this.nickname){
+          nativeToast({
+            message: `New message by {snapshot.val().nickname}`,
+            position: 'top',
+            timeout: 5000,
+            type: 'success'
+          })
+          // nativeToast({
+          //     message: `New message by {snapshot.val().nickname}`,
+          //     type: 'success'
+          // })
+        }
+      })
+      messagesRef.on('child_removed', snapshot => { 
+        const deleteMessage = this.messages.find(message => message.id === snapshot.key)
+        const index = this.messages.indexOf(deleteMessage)
+        this.messages.splice(index, 1)
+        if(snapshot.val().nickname !== this.nickname){
+          nativeToast({
+            message: `Message deleted by {snapshot.val().nickname}`,
+            position: 'top',
+            timeout: 5000,
+            type: 'warning'
+          })
+        }
+       })      
+       messagesRef.on('child_changed', snapshot => { 
+        const updatedMessage = this.messages.find(message => message.id === snapshot.key)
+        updatedMessage.text = snapshot.val().text
+
+        if(snapshot.val().nickname !== this.nickname){
+          nativeToast({
+            message: `Message updated by {snapshot.val().nickname}`,
+            position: 'top',
+            timeout: 5000,
+            type: 'info'
+          })
+        }
+       })
+    }
+
+  })
+</script>
+</html>
